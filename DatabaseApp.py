@@ -47,7 +47,7 @@ class App(tk.Tk):
 
 			frame.grid(row=0, column=0, sticky="nsew")
 
-		self.show_frame(Toevoegen)
+		self.show_frame(StartPage)
 
 	def show_frame(self, cont):
 		frame = self.frames[cont]
@@ -95,6 +95,7 @@ class Toevoegen(tk.Frame):
 		#variable
 		self.Geslacht = tk.StringVar()
 		self.lijst = tk.StringVar()
+		self.pos = 0
 
 		#create labels
 		self.l1 = tk.Label(self, text = "Voornaam", font = fontsize, anchor = "e")
@@ -256,23 +257,27 @@ def Delete_list_toe(frame):
 
 #===============================================================================================================================
 def Update_list_toe(frame):
+	
+	if frame.Vnaam.get() == "" and frame.Anaam.get() == "":
 		
-	voornaam 	= frame.Vnaam.get()
-	achternaam 	= frame.Anaam.get()
-	geslacht 	= frame.Geslacht.get()
-	mail 		= frame.mail.get()
+		frame.pos = askstring('ID', 'Voer ID nr. in van gegevens die je wilt update')
 
-	if voornaam == "" and achternaam == "":
-		print("niets ingevult")
-		showinfo('Hello!', "Er zijn geen gegevens ingevult.")
-		frame.Vnaam.focus_set()
+		c.execute("SELECT * FROM " + sql + " WHERE rowid = ?", frame.pos)
+		data = c.fetchall()
+
+		frame.Vnaam.insert (0, data[0][0])
+		frame.Anaam.insert (0, data[0][1])
+		frame.Geslacht.set(data[0][2])
+		frame.mail.insert (0, data[0][3])
+
 	else:
-		pos = askstring('ID', 'Voer ID nr. in van gegevens die je wilt update')
-		MsgBox = messagebox.askquestion ('Update gegevens','Zeker dat je deze gegevens wilt Update?',icon = 'warning')
-		
-		if MsgBox == 'yes':
-			c.execute(sql_update, (voornaam, achternaam, geslacht, mail, pos))
-			conn.commit()
+		voornaam 	= frame.Vnaam.get()
+		achternaam 	= frame.Anaam.get()
+		geslacht 	= frame.Geslacht.get()
+		mail 		= frame.mail.get()
+
+		c.execute(sql_update, (voornaam, achternaam, geslacht, mail, frame.pos))
+		conn.commit()
 
 		frame.Vnaam.delete(first = 0, last = tk.END)
 		frame.Anaam.delete(first = 0, last = tk.END)
@@ -280,6 +285,7 @@ def Update_list_toe(frame):
 		frame.mail.delete(first = 0, last = tk.END)
 
 		Read_list_toe(frame)
+		frame.pos = 0
 	
 #=============loop=========================
 Create_tabel()
