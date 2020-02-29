@@ -13,12 +13,14 @@ conn = sqlite3.connect("test.db")
 
 c = conn.cursor()
 
-sql = "frames3"
-sql_tabel = "CREATE TABLE IF NOT EXISTS " + sql +" (Voornaam text, Achternaam text, geslacht text, mail text)"
-sql_data_entry = "INSERT INTO "+ sql +" (Voornaam, Achternaam, geslacht, mail) VALUES (?,?,?,?)"
-sql_update = "UPDATE "+ sql + " SET Voornaam = ?, Achternaam = ?, geslacht = ?, mail = ? WHERE rowid = ?"
-sql_delete = "DELETE FROM "+ sql + " WHERE Achternaam = ?"
+sql_naamlijst = "Naamlijst"
+sql_tabel_naamlijst = "CREATE TABLE IF NOT EXISTS " + sql_naamlijst +" (Voornaam text, Achternaam text, geslacht text, mail text)"
+sql_data_entry_naamlijst = "INSERT INTO "+ sql_naamlijst +" (Voornaam, Achternaam, geslacht, mail) VALUES (?,?,?,?)"
+sql_update_naamlijst = "UPDATE "+ sql_naamlijst + " SET Voornaam = ?, Achternaam = ?, geslacht = ?, mail = ? WHERE rowid = ?"
+sql_delete_naamlijst = "DELETE FROM "+ sql_naamlijst + " WHERE Achternaam = ?"
 
+sql_aanwezigheden = "aanwezig"
+sql_tabel_aanwezigheden = "CREATE TABLE IF NOT EXISTS " + sql_aanwezigheden +" (Voornaam text, Achternaam text, aanwezig text)"
 #=======================class InputFrame===============================
 class App(tk.Tk):
 	def __init__(self, *args, **kwargs):
@@ -167,17 +169,139 @@ class Toevoegen(tk.Frame):
 
 		self.Geslacht.set("M")		
 
+#===============================================================================================================================
+def Data_entry_toe(frame):
+	voornaam = frame.Vnaam.get()
+	achternaam = frame.Anaam.get()
+	geslacht = frame.Geslacht.get()
+	mail = frame.mail.get()
+
+	c.execute(sql_data_entry_naamlijst,(voornaam, achternaam, geslacht, mail))
+	conn.commit()
+
+#===============================================================================================================================
+def Read_list_toe(frame):
+	c.execute("SELECT * FROM " + sql_naamlijst)
+	data = c.fetchall()
+	naamlijst = ""
+	
+
+	c.execute("SELECT * FROM " + sql_naamlijst)
+	for i in range(len(c.fetchall())):
+		#t = c.execute("SELECT rowid FROM " + sql + " WHERE Voornaam = ?", [data[i][0]])
+		naamlijst += str(i + 1) + "  " + data[i][0] + "\t" + data[i][1] + "\t" + data[i][2] + "\t" + data[i][3] + "\n"
+
+	frame.lijst.set(naamlijst)
+
+#===============================================================================================================================
+def Delete_list_toe(frame):
+	
+	pos = askstring('ID', 'Voer ID nr. in van gegevens die je wilt Verwijderen')
+	MsgBox = messagebox.askquestion ('Delete gegevens','Zeker dat je deze gegevens wilt verwijderen?',icon = 'warning')
+
+	if MsgBox == 'yes':
+		c.execute("DELETE FROM " + sql_naamlijst + " WHERE rowid = ?", pos)
+		conn.commit()
+		c.execute("VACUUM")
+
+	frame.Vnaam.delete(first = 0, last = tk.END)
+	frame.Anaam.delete(first = 0, last = tk.END)
+
+	Read_list_toe(frame)
+
+#===============================================================================================================================
+def Update_list_toe(frame):
+	
+	if frame.Vnaam.get() == "" and frame.Anaam.get() == "":
+		
+		frame.pos = askstring('ID', 'Voer ID nr. in van gegevens die je wilt update')
+
+		c.execute("SELECT * FROM " + sql_naamlijst + " WHERE rowid = ?", frame.pos)
+		data = c.fetchall()
+
+		frame.Vnaam.insert (0, data[0][0])
+		frame.Anaam.insert (0, data[0][1])
+		frame.Geslacht.set(data[0][2])
+		frame.mail.insert (0, data[0][3])
+
+	else:
+		voornaam 	= frame.Vnaam.get()
+		achternaam 	= frame.Anaam.get()
+		geslacht 	= frame.Geslacht.get()
+		mail 		= frame.mail.get()
+
+		c.execute(sql_update_naamlijst, (voornaam, achternaam, geslacht, mail, frame.pos))
+		conn.commit()
+
+		frame.Vnaam.delete(first = 0, last = tk.END)
+		frame.Anaam.delete(first = 0, last = tk.END)
+		frame.geslacht = " "
+		frame.mail.delete(first = 0, last = tk.END)
+
+		Read_list_toe(frame)
+		frame.pos = 0
+
 class Aanwezigheden(tk.Frame):
 
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
-        self.controller = controller
-        label = ttk.Label(self, text="Aanwezigheden")
-        label.pack(side="top", fill="x", pady=10)
-        button = tk.Button(self, text="Go to the start page",font = 10,
-                           command=lambda: controller.show_frame(StartPage))
-        button.pack()
+	def __init__(self, parent, controller):
+		tk.Frame.__init__(self, parent)
+		
+		fontsize = "Verdana 30"
 
+		self.checks = {}
+		self.toggle = {}
+		self.labels = {}
+		self.Var = {}
+
+		Init_check_Aan(self)
+
+		self.refresh = tk.Button(self, text = "Refresh", font = fontsize, command = lambda: Init_check_Aan(self))
+		self.start = tk.Button(self, text="Start",font = fontsize, command=lambda: controller.show_frame(StartPage))
+		self.start.place(relx = 0.35, rely = 0.9, relheight = 0.07, relwidth = 0.3)
+		self.refresh.place(relx = 0.35, rely = 0.82, relheight = 0.07, relwidth = 0.3)
+
+def Init_check_Aan(frame):
+	c.execute("SELECT * FROM " + sql_naamlijst)
+	lengte = len(c.fetchall())
+
+	c.execute("SELECT * FROM " + sql_naamlijst)
+	data = c.fetchall()
+	
+	fontsize = "Verdana 30"
+
+	#dynamisch buttons toevoegen
+	for i in range(lengte):
+
+		#voeg label toe die kunnen veranderen
+		frame.Var[data[i][0]] = tk.StringVar()
+		label = tk.Label(frame, textvariable = frame.Var[data[i][0]], font = fontsize)
+		frame.Var[data[i][0]].set("X")
+		frame.labels[i] = label
+
+		#voeg buttons toe 
+		checkbox = tk.Button(frame, text = data[i][0], font = fontsize, command = lambda x = data[i][0]: Toggle_Aan(frame, x))
+		frame.checks[i] = checkbox
+		
+		#zet toggle buttons op False
+		frame.toggle[data[i][0]] = False
+
+	#plaats buttons en labels op scherm
+	for i in range(lengte):
+		y = 0.1 + (0.07 * i) + 0.01
+		frame.checks[i].place(relx = 0.02, rely = y, relheight = 0.07, relwidth = 0.15)
+		frame.labels[i].place(relx = 0.18, rely = y, relheight = 0.07, relwidth = 0.15)
+
+#toggle functie wisselt tussen True en False
+def Toggle_Aan(frame, index):
+
+	if frame.toggle[index] == True:
+		frame.toggle[index] = False
+		frame.Var[index].set("X")
+		
+	else:
+		frame.toggle[index] = True
+		frame.Var[index].set("aanwezig")
+	
 class Vooruitgang(tk.Frame):
 
     def __init__(self, parent, controller):
@@ -213,79 +337,10 @@ class Aanbevelingen(tk.Frame):
 
 #=============functies=============================
 def Create_tabel():
-	c.execute(sql_tabel)
-
-#===============================================================================================================================
-def Data_entry_toe(frame):
-	voornaam = frame.Vnaam.get()
-	achternaam = frame.Anaam.get()
-	geslacht = frame.Geslacht.get()
-	mail = frame.mail.get()
-
-	c.execute(sql_data_entry,(voornaam, achternaam, geslacht, mail))
+	c.execute(sql_tabel_naamlijst)
+	#c.execute(sql_aanwezigheden)
 	conn.commit()
 
-#===============================================================================================================================
-def Read_list_toe(frame):
-	c.execute("SELECT * FROM " + sql)
-	data = c.fetchall()
-	naamlijst = ""
-	
-
-	c.execute("SELECT * FROM " + sql)
-	for i in range(len(c.fetchall())):
-		#t = c.execute("SELECT rowid FROM " + sql + " WHERE Voornaam = ?", [data[i][0]])
-		naamlijst += str(i + 1) + "  " + data[i][0] + "\t" + data[i][1] + "\t" + data[i][2] + "\t" + data[i][3] + "\n"
-
-	frame.lijst.set(naamlijst)
-
-#===============================================================================================================================
-def Delete_list_toe(frame):
-	
-	pos = askstring('ID', 'Voer ID nr. in van gegevens die je wilt Verwijderen')
-	MsgBox = messagebox.askquestion ('Delete gegevens','Zeker dat je deze gegevens wilt verwijderen?',icon = 'warning')
-
-	if MsgBox == 'yes':
-		c.execute("DELETE FROM " + sql + " WHERE rowid = ?", pos)
-		conn.commit()
-		c.execute("VACUUM")
-
-	frame.Vnaam.delete(first = 0, last = tk.END)
-	frame.Anaam.delete(first = 0, last = tk.END)
-
-	Read_list_toe(frame)
-
-#===============================================================================================================================
-def Update_list_toe(frame):
-	
-	if frame.Vnaam.get() == "" and frame.Anaam.get() == "":
-		
-		frame.pos = askstring('ID', 'Voer ID nr. in van gegevens die je wilt update')
-
-		c.execute("SELECT * FROM " + sql + " WHERE rowid = ?", frame.pos)
-		data = c.fetchall()
-
-		frame.Vnaam.insert (0, data[0][0])
-		frame.Anaam.insert (0, data[0][1])
-		frame.Geslacht.set(data[0][2])
-		frame.mail.insert (0, data[0][3])
-
-	else:
-		voornaam 	= frame.Vnaam.get()
-		achternaam 	= frame.Anaam.get()
-		geslacht 	= frame.Geslacht.get()
-		mail 		= frame.mail.get()
-
-		c.execute(sql_update, (voornaam, achternaam, geslacht, mail, frame.pos))
-		conn.commit()
-
-		frame.Vnaam.delete(first = 0, last = tk.END)
-		frame.Anaam.delete(first = 0, last = tk.END)
-		frame.geslacht = " "
-		frame.mail.delete(first = 0, last = tk.END)
-
-		Read_list_toe(frame)
-		frame.pos = 0
 	
 #=============loop=========================
 Create_tabel()
